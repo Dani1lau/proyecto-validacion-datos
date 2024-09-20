@@ -203,6 +203,10 @@ function Usuarios1() {
     });
   };
 
+
+
+
+
   const handleSearch = async (event) => {
     event.preventDefault(); // Prevenir el comportamiento predeterminado del formulario
 
@@ -499,6 +503,7 @@ function Usuarios1() {
       console.error(error);
     }
   };
+  
 
   // Renderizar condicionalmente el formulario con los datos del usuario
   return (

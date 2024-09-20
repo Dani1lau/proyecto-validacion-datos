@@ -1,97 +1,187 @@
-import React, { useState } from "react";
-import { login } from "../api/api"; // Importa la función de login que realiza la solicitud al backend
-import logo from "../../src/static/img/Logo de Bienestar.png";
-import logonormal from "../../src/static/img/logo.png";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import React, { useState } from 'react';
+import Swal from 'sweetalert2';
+import { getProgramacionesPorFichaYCoordinacion } from '../api/api';
 
-function Login1() {
-  const [correo, setCorreo] = useState("");
-  const [contraseña, setContraseña] = useState("");
-  const [error, setError] = useState("");
-  const [mostrarContraseña, setMostrarContraseña] = useState(false); // Estado para mostrar/ocultar contraseña
+function Calendariomain() {
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [daysInMonth, setDaysInMonth] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [fichaError, setFichaError] = useState('');
+  const [coordinacionError, setCoordinacionError] = useState('');
+
+  const generateDaysArray = (year, month, events) => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysArray = [];
+
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const dateStr = date.toISOString().split('T')[0];
+      const event = events.find(e => e.fecha === dateStr);
+      daysArray.push({
+        day: i,
+        dateStr: dateStr,
+        hasEvent: !!event,
+      });
+    }
+
+    return daysArray;
+  };
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Evita la recarga de la página
+    event.preventDefault();
+
+    const ficha = event.target.ficha.value;
+    const coordinacion = event.target.coordinacion.value;
+    setFichaError('');
+    setCoordinacionError('');
+
+    // Validación de ficha
+    if (!/^\d{7,}$/.test(ficha)) {
+      setFichaError('La ficha debe tener al menos 7 números.');
+      return;
+    }
+
+    // Validación de coordinacion
+    if (!/^[a-zA-Z\s]+$/.test(coordinacion)) {
+      setCoordinacionError('La coordinación solo puede contener letras.');
+      return;
+    }
 
     try {
-      const data = await login(correo, contraseña); // Llama a la API con los valores del formulario
-      console.log("Inicio de sesión exitoso:", data);
+      const response = await getProgramacionesPorFichaYCoordinacion(ficha, coordinacion);
+      console.log("Response de API:", response);
 
-      // Guardar el token en el almacenamiento local
-      localStorage.setItem("token", data.token);
+      const uniqueEvents = [];
+      const seen = new Set();
 
-      // Dependiendo del rol, redireccionar a diferentes páginas
-      const rol = data.user.rol; // Acceder al rol dentro de "user"
+      response.forEach(item => {
+        Object.values(item).forEach(event => {
+          const key = `${event.fecha_procaptall}-${event.nombre_Taller}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueEvents.push({
+              sede_procaptall: event.sede_procaptall,
+              descripcion_procaptall: event.descripcion_procaptall,
+              ambiente_procaptall: event.ambiente_procaptall,
+              fecha: event.fecha_procaptall.split('T')[0],
+              horaInicio_procaptall: event.horaInicio_procaptall,
+              horaFin_procaptall: event.horaFin_procaptall,
+              numero_FichaFK: event.numero_FichaFK,
+              nombre_Taller: event.nombre_Taller,
+              nombre_Capacitador: event.nombre_Capacitador,
+            });
+          }
+        });
+      });
 
-      if (rol === 1) {
-        window.location.href = "/perfilAdmin";
-      } else if (rol === 2) {
-        window.location.href = "/inicioUsuario";
-      } else if (rol === 3) {
-        window.location.href = "/inicioAdmin";
-      } else {
-        setError("Rol no reconocido. Contacte con el administrador.");
-      }
-    } catch (err) {
-      console.error("Error de inicio de sesión:", err);
-      setError("Correo o contraseña incorrectos. Inténtalo de nuevo.");
+      console.log("Eventos únicos mapeados:", uniqueEvents);
+      setEvents(uniqueEvents);
+
+      const daysArray = generateDaysArray(currentYear, currentMonth, uniqueEvents);
+      setDaysInMonth(daysArray);
+      setCalendarVisible(true);
+    } catch (error) {
+      console.error("Error al obtener programaciones:", error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo obtener la programación.',
+        icon: 'error',
+        confirmButtonText: 'Cerrar',
+      });
+    }
+  };
+
+  const handleKeyPressFicha = (event) => {
+    // Permitir solo números
+    if (!/^[0-9]*$/.test(event.key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handleKeyPressCoordinacion = (event) => {
+    // Permitir solo letras
+    if (/[^a-zA-Z\s]/.test(event.key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handleDayClick = (dateStr) => {
+    const dailyEvents = events.filter(e => e.fecha === dateStr);
+    if (dailyEvents.length > 0) {
+      const eventDetails = dailyEvents.map(e => 
+        `<div style="text-align: left;">
+          <strong>Taller:</strong> ${e.nombre_Taller}<br>
+          <strong>Capacitador:</strong> ${e.nombre_Capacitador}<br>
+          <strong>Descripción:</strong> ${e.descripcion_procaptall}<br>
+          <strong>Sede:</strong> ${e.sede_procaptall}<br>
+          <strong>Ambiente:</strong> ${e.ambiente_procaptall}<br>
+          <strong>Fecha:</strong> ${e.fecha}<br>
+          <strong>Hora Inicio:</strong> ${e.horaInicio_procaptall}<br>
+          <strong>Hora Fin:</strong> ${e.horaFin_procaptall}
+        </div>`).join('<hr/>');
+
+      Swal.fire({
+        title: `Programación para ${dateStr}`,
+        html: eventDetails,
+        confirmButtonText: 'Cerrar',
+      });
+    } else {
+      Swal.fire({
+        title: 'Sin Programación',
+        text: 'No hay eventos programados para este día.',
+        icon: 'info',
+        confirmButtonText: 'Cerrar',
+      });
     }
   };
 
   return (
-    <div className="body-login">
-      <div className="container-login">
-        <header className="header-login">
-          <div className="logo">
-            <img src={logo} className="logobienestar" alt="Logo" />
-          </div>
-        </header>
-        <div className="form-container-login">
-          <form className="login-formulario" onSubmit={handleSubmit}>
-            <img src={logonormal} className="logo2" alt="Logo" />
-            <div className="mb-3">
-              <label htmlFor="correo" className="formLogin-label">
-                Correo:
-              </label>
-              <input
-                type="email"
-                className="form-control-login"
-                id="correo"
-                value={correo}
-                onChange={(e) => setCorreo(e.target.value)}
-                required
-              />
-            </div>
-            <div className="mb-3 password-container">
-              <label htmlFor="contraseña" className="form-label">
-                Contraseña:
-              </label>
-              <div className="input-container">
-                <input
-                  type={mostrarContraseña ? "text" : "password"}
-                  className="form-control-login"
-                  id="contraseña"
-                  value={contraseña}
-                  onChange={(e) => setContraseña(e.target.value)}
-                  required
-                />
-                <span
-                  className="password-toggle-icon"
-                  onClick={() => setMostrarContraseña(!mostrarContraseña)}
-                >
-                  {mostrarContraseña ? <FaEyeSlash /> : <FaEye />}
-                </span>
-              </div>
-            </div>
-            {error && <p style={{ color: "red" }}>{error}</p>}
-            <button className="botonLogin-inicio" type="submit">
-              Iniciar sesión
-            </button>
-          </form>
-        </div>
+    <main>
+      <div className="form-container-calendariousua">
+        <h2 className="Titulo-calendariousua">Seleccione Ficha y Coordinación</h2>
+        <form id="selection-form" onSubmit={handleSubmit}>
+          <label className="label-ficha-calendariousua" htmlFor="ficha">Ficha:</label>
+          <input
+            className="input-calendariousua"
+            type="text"
+            id="ficha"
+            name="ficha"
+            required
+            onKeyPress={handleKeyPressFicha}
+          />
+          {fichaError && <p className="error-message">{fichaError}</p>}
+          <label className="label-ficha-calendariousua" htmlFor="coordinacion">Coordinación:</label>
+          <input
+            className="input-calendariousua"
+            type="text"
+            id="coordinacion"
+            name="coordinacion"
+            required
+            onKeyPress={handleKeyPressCoordinacion}
+          />
+          {coordinacionError && <p className="error-message">{coordinacionError}</p>}
+          <button className="boton-calendarioUsuario" type="submit">Mostrar Calendario</button>
+        </form>
       </div>
-    </div>
+      {calendarVisible && (
+        <div className="calendar-container">
+          <div className="calendar-grid">
+            {daysInMonth.map(day => (
+              <div
+                key={day.dateStr}
+                className={`calendar-day ${day.hasEvent ? 'event' : ''}`}
+                onClick={() => handleDayClick(day.dateStr)}
+              >
+                {day.day}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
 
-export default Login1;
+export default Calendariomain;

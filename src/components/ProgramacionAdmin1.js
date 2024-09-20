@@ -5,7 +5,21 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 const ProgramacionAdmin1 = () => {
     const [coordinacion, setCoordinacion] = useState('');
     const [ficha, setFicha] = useState('');
+    const [error, setError] = useState(''); // Agregar estado para el error
     const [showInfo, setShowInfo] = useState(false);
+
+
+    
+    const handleFichaChange = (e) => {
+        const value = e.target.value;
+
+        if (/^\d{0,7}$/.test(value)) {
+            setFicha(value);
+            setError('');
+        } else {
+            setError('La ficha debe contener solo números y hasta 7 dígitos.');
+        }
+    };
 
     const handleGuardar = () => {
         Swal.fire({
@@ -249,8 +263,9 @@ const ProgramacionAdmin1 = () => {
                                     name="fichaBusqueda"
                                     placeholder="Ingrese el número de ficha"
                                     value={ficha}
-                                    onChange={(e) => setFicha(e.target.value)}
+                                    onChange={handleFichaChange}
                                 />
+                                {error && <span className="error-message">{error}</span>}
                             </div>
                         </div>
                         <div className="form-group">

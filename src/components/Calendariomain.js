@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Swal from 'sweetalert2';
 import { getProgramacionesPorFichaYCoordinacion } from '../api/api';
 
@@ -8,6 +8,8 @@ function Calendariomain() {
   const [daysInMonth, setDaysInMonth] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [fichaError, setFichaError] = useState('');
+  const [coordinacionError, setCoordinacionError] = useState('');
 
   const generateDaysArray = (year, month, events) => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -25,57 +27,6 @@ function Calendariomain() {
     }
 
     return daysArray;
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    const ficha = event.target.ficha.value;
-    const coordinacion = event.target.coordinacion.value;
-
-    try {
-      const response = await getProgramacionesPorFichaYCoordinacion(ficha, coordinacion);
-      console.log("Response de API:", response);
-
-      // Usar un Set para eliminar duplicados basados en la fecha y el taller
-      const uniqueEvents = [];
-      const seen = new Set();
-
-      response.forEach(item => {
-        Object.values(item).forEach(event => {
-          const key = `${event.fecha_procaptall}-${event.nombre_Taller}`; // Clave única
-          if (!seen.has(key)) {
-            seen.add(key);
-            uniqueEvents.push({
-              sede_procaptall: event.sede_procaptall,
-              descripcion_procaptall: event.descripcion_procaptall,
-              ambiente_procaptall: event.ambiente_procaptall,
-              fecha: event.fecha_procaptall.split('T')[0], // Solo la fecha
-              horaInicio_procaptall: event.horaInicio_procaptall,
-              horaFin_procaptall: event.horaFin_procaptall,
-              numero_FichaFK: event.numero_FichaFK,
-              nombre_Taller: event.nombre_Taller,
-              nombre_Capacitador: event.nombre_Capacitador,
-            });
-          }
-        });
-      });
-
-      console.log("Eventos únicos mapeados:", uniqueEvents);
-      setEvents(uniqueEvents);
-
-      const daysArray = generateDaysArray(currentYear, currentMonth, uniqueEvents);
-      setDaysInMonth(daysArray);
-      setCalendarVisible(true);
-    } catch (error) {
-      console.error("Error al obtener programaciones:", error);
-      Swal.fire({
-        title: 'Error',
-        text: 'No se pudo obtener la programación.',
-        icon: 'error',
-        confirmButtonText: 'Cerrar',
-      });
-    }
   };
 
   const handleDayClick = (dateStr) => {
@@ -108,6 +59,75 @@ function Calendariomain() {
     }
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const ficha = event.target.ficha.value;
+    const coordinacion = event.target.coordinacion.value;
+    setFichaError('');
+    setCoordinacionError('');
+
+    // Validación de ficha
+    if (!/^\d+$/.test(ficha)) {
+      setFichaError('La ficha debe contener solo números.');
+      return;
+    }
+
+    if (ficha.length > 7) {
+      setFichaError('La ficha debe contener un máximo de 7 dígitos.');
+      return;
+    }
+
+    // Validación de coordinacion
+    if (!/^[a-zA-Z\s]+$/.test(coordinacion)) {
+      setCoordinacionError('La coordinación solo puede contener letras.');
+      return;
+    }
+
+    try {
+      const response = await getProgramacionesPorFichaYCoordinacion(ficha, coordinacion);
+      console.log("Response de API:", response);
+
+      const uniqueEvents = [];
+      const seen = new Set();
+
+      response.forEach(item => {
+        Object.values(item).forEach(event => {
+          const key = `${event.fecha_procaptall}-${event.nombre_Taller}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueEvents.push({
+              sede_procaptall: event.sede_procaptall,
+              descripcion_procaptall: event.descripcion_procaptall,
+              ambiente_procaptall: event.ambiente_procaptall,
+              fecha: event.fecha_procaptall.split('T')[0],
+              horaInicio_procaptall: event.horaInicio_procaptall,
+              horaFin_procaptall: event.horaFin_procaptall,
+              numero_FichaFK: event.numero_FichaFK,
+              nombre_Taller: event.nombre_Taller,
+              nombre_Capacitador: event.nombre_Capacitador,
+            });
+          }
+        });
+      });
+
+      console.log("Eventos únicos mapeados:", uniqueEvents);
+      setEvents(uniqueEvents);
+
+      const daysArray = generateDaysArray(currentYear, currentMonth, uniqueEvents);
+      setDaysInMonth(daysArray);
+      setCalendarVisible(true);
+    } catch (error) {
+      console.error("Error al obtener programaciones:", error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo obtener la programación.',
+        icon: 'error',
+        confirmButtonText: 'Cerrar',
+      });
+    }
+  };
+
   return (
     <main>
       <div className="form-container-calendariousua">
@@ -115,8 +135,10 @@ function Calendariomain() {
         <form id="selection-form" onSubmit={handleSubmit}>
           <label className="label-ficha-calendariousua" htmlFor="ficha">Ficha:</label>
           <input className="input-calendariousua" type="text" id="ficha" name="ficha" required />
+          {fichaError && <p className="error-message">{fichaError}</p>}
           <label className="label-ficha-calendariousua" htmlFor="coordinacion">Coordinación:</label>
           <input className="input-calendariousua" type="text" id="coordinacion" name="coordinacion" required />
+          {coordinacionError && <p className="error-message">{coordinacionError}</p>}
           <button className="boton-calendarioUsuario" type="submit">Mostrar Calendario</button>
         </form>
       </div>
