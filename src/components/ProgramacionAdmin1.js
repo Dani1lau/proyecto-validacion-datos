@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
+
+//const programacion admin
 const ProgramacionAdmin1 = () => {
     const [coordinacion, setCoordinacion] = useState('');
     const [ficha, setFicha] = useState('');
